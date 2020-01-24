@@ -44,7 +44,7 @@ impl API {
         let size_ptr: *mut ::libc::size_t = &mut size;
         match cudnnGetRNNWorkspaceSize(handle, rnn_desc, unroll_sequence_length, x_desc.as_ptr(), size_ptr) {
             cudnnStatus_t::CUDNN_STATUS_SUCCESS => Ok(size),
-            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("At least one of the following conditions are met: One of the parameters `x_desc`, `rnn_desc` is NULL. The tensors in `x_desc` are not of the same data type. The batch size of the tensors `x_desc` are not decreasing or staying constant.")),
+            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("RNN Workspace - At least one of the following conditions are met: One of the parameters `x_desc`, `rnn_desc` is NULL. The tensors in `x_desc` are not of the same data type. The batch size of the tensors `x_desc` are not decreasing or staying constant.")),
             cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("The data type used in `src_desc` is not supported for RNN.")),
             _ => Err(Error::Unknown("Unable to get CUDA cuDNN RNN Forward Workspace size.")),
         }
@@ -80,7 +80,7 @@ impl API {
         let size_ptr : *mut ::libc::size_t = &mut size;
         match cudnnGetRNNTrainingReserveSize(handle, rnn_desc,seq_length, x_desc.as_ptr(), size_ptr) {
             cudnnStatus_t::CUDNN_STATUS_SUCCESS => Ok(size),
-            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("At least one of the following conditions are met: One of the parameters `handle`, `x_desc`, `rnn_desc` is NULL. The tensors in `x_desc` are not of the same data type. The batch size of the tensors `x_desc` are not decreasing or staying constant.")),
+            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("Training Reserve Size - At least one of the following conditions are met: One of the parameters `handle`, `x_desc`, `rnn_desc` is NULL. The tensors in `x_desc` are not of the same data type. The batch size of the tensors `x_desc` are not decreasing or staying constant.")),
             cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("The data type used in `src_desc` is not supported for RNN.")),
             _ => Err(Error::Unknown("Unable to get CUDA cuDNN RNN Training Reserve size.")),
         }
@@ -121,6 +121,108 @@ impl API {
             cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("One of the following; rnnDesc is invalid, x_desc is invalid, x_desc isn't fully packed, dataType & tensor Description type don't match")),
             cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("The data type used in `rnn_desc` is not supported for RNN.")),
             _ => Err(Error::Unknown("Unable to get CUDA cuDNN RNN Params Size")),
+        }
+    }
+
+    /// Get RNN Lin Layer Matrix Params cudnnRNNLinLayerMatrixParams
+    /// This function is used to obtain a pointer and a descriptor of every RNN weight matrix in
+    /// each pseudo-layer within the recurrent network defined by ```rnn_desc``` and its input width
+    /// specified in ```x_desc```.
+    pub fn get_rnn_lin_layer_matrix_params(
+        handle: cudnnHandle_t,
+        rnn_desc: cudnnRNNDescriptor_t,
+        layer: i32,
+        x_desc: cudnnTensorDescriptor_t,
+        w_desc: cudnnFilterDescriptor_t,
+        w: *const ::libc::c_void,
+        lin_layer_id: i32,
+        lin_layer_mat_desc: cudnnFilterDescriptor_t,
+        lin_layer_mat: *mut *mut ::libc::c_void
+    ) -> Result<(), Error> {
+        unsafe {
+            API::ffi_get_rnn_lin_layer_matrix_params(
+                handle,
+                rnn_desc,
+                layer,
+                x_desc,
+                w_desc,
+                w,
+                lin_layer_id,
+                lin_layer_mat_desc,
+                lin_layer_mat
+            )
+        }
+    }
+
+    unsafe fn ffi_get_rnn_lin_layer_matrix_params(
+        handle: cudnnHandle_t,
+        rnn_desc: cudnnRNNDescriptor_t,
+        layer: ::libc::c_int,
+        x_desc: cudnnTensorDescriptor_t,
+        w_desc: cudnnFilterDescriptor_t,
+        w: *const ::libc::c_void,
+        lin_layer_id: ::libc::c_int,
+        lin_layer_mat_desc: cudnnFilterDescriptor_t,
+        lin_layer_mat: *mut *mut ::libc::c_void
+    ) -> Result<(), Error> {
+            match cudnnGetRNNLinLayerMatrixParams(
+                handle, rnn_desc, layer, x_desc, w_desc, w, lin_layer_id, lin_layer_mat_desc, lin_layer_mat
+            ) {
+                cudnnStatus_t::CUDNN_STATUS_SUCCESS => Ok(()),
+                cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("CudaGetRNNLinLayerMatrixParams doesn't support the given config")),
+                cudnnStatus_t::CUDNN_STATUS_INVALID_VALUE => Err(Error::InvalidValue("CudaGetRNNLinLayerMatrixParams was provided a bad param of either handle/rnnDesc/xDesc/wDesc/linLayerMatDesc/linLayerMat being NULL, data mismatch with rnnDesc and other descriptors, w pointer alignment isn't satisfied, or the value for psuedolayer/linLayerID is out of range.")),
+                _ => Err(Error::Unknown(("Unable to get CUDA Lin Layer Matrix Params")))
+            }
+    }
+
+    /// Get RNN Lin Layer Bias Params cudnnRNNLinLayerMatrixParams
+   /// This function is used to obtain a pointer and a descriptor of every RNN bias column vector in
+   /// each pseudo-layer within the recurrent network defined by ```rnn_desc``` and its input width
+   /// specified in ```x_desc```.
+    pub fn get_rnn_lin_layer_bias_params(
+        handle: cudnnHandle_t,
+        rnn_desc: cudnnRNNDescriptor_t,
+        layer: i32,
+        x_desc: cudnnTensorDescriptor_t,
+        w_desc: cudnnFilterDescriptor_t,
+        w: *const ::libc::c_void,
+        lin_layer_id: i32,
+        lin_layer_mat_desc: cudnnFilterDescriptor_t,
+        lin_layer_mat: *mut *mut ::libc::c_void
+    ) -> Result<(), Error> {
+        unsafe {
+            API::ffi_get_rnn_lin_layer_bias_params(
+                handle,
+                rnn_desc,
+                layer,
+                x_desc,
+                w_desc,
+                w,
+                lin_layer_id,
+                lin_layer_mat_desc,
+                lin_layer_mat
+            )
+        }
+    }
+
+    unsafe fn ffi_get_rnn_lin_layer_bias_params(
+        handle: cudnnHandle_t,
+        rnn_desc: cudnnRNNDescriptor_t,
+        layer: ::libc::c_int,
+        x_desc: cudnnTensorDescriptor_t,
+        w_desc: cudnnFilterDescriptor_t,
+        w: *const ::libc::c_void,
+        lin_layer_id: ::libc::c_int,
+        lin_layer_mat_desc: cudnnFilterDescriptor_t,
+        lin_layer_mat: *mut *mut ::libc::c_void
+    ) -> Result<(), Error> {
+        match cudnnGetRNNLinLayerBiasParams(
+            handle, rnn_desc, layer, x_desc, w_desc, w, lin_layer_id, lin_layer_mat_desc, lin_layer_mat
+        ) {
+            cudnnStatus_t::CUDNN_STATUS_SUCCESS => Ok(()),
+            cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("CudaGetRNNLinLayerMatrixParams doesn't support the given config")),
+            cudnnStatus_t::CUDNN_STATUS_INVALID_VALUE => Err(Error::InvalidValue("CudaGetRNNLinLayerMatrixParams was provided a bad param of either handle/rnnDesc/xDesc/wDesc/linLayerMatDesc/linLayerMat being NULL, data mismatch with rnnDesc and other descriptors, w pointer alignment isn't satisfied, or the value for psuedolayer/linLayerID is out of range.")),
+            _ => Err(Error::Unknown(("Unable to get CUDA Lin Layer Bias Params")))
         }
     }
 }
@@ -286,7 +388,7 @@ impl API {
         handle: cudnnHandle_t,
         rnn_desc: cudnnRNNDescriptor_t,
         seq_length: ::libc::c_int,
-        x_desc: Vec<cudnnTensorDescriptor_t>,
+        x_desc: *const cudnnTensorDescriptor_t,
         x: *const ::libc::c_void,
         hx_desc: cudnnTensorDescriptor_t,
         hx: *const ::libc::c_void,
@@ -294,7 +396,7 @@ impl API {
         cx: *const ::libc::c_void,
         w_desc: cudnnFilterDescriptor_t,
         w: *const ::libc::c_void,
-        y_desc: Vec<cudnnTensorDescriptor_t>,
+        y_desc: *const cudnnTensorDescriptor_t,
         y: *mut ::libc::c_void,
         hy_desc: cudnnTensorDescriptor_t,
         hy: *mut ::libc::c_void,
@@ -310,7 +412,7 @@ impl API {
                 handle,
                 rnn_desc,
                 seq_length,
-                x_desc.as_slice(),
+                x_desc,
                 x,
                 hx_desc,
                 hx,
@@ -318,7 +420,7 @@ impl API {
                 cx,
                 w_desc,
                 w,
-                y_desc.as_slice(),
+                y_desc,
                 y,
                 hy_desc,
                 hy,
@@ -335,7 +437,7 @@ impl API {
         handle: cudnnHandle_t,
         rnn_desc: cudnnRNNDescriptor_t,
         seq_length: ::libc::c_int,
-        x_desc: &[cudnnTensorDescriptor_t],
+        x_desc: *const cudnnTensorDescriptor_t,
         x: *const ::libc::c_void,
         hx_desc: cudnnTensorDescriptor_t,
         hx: *const ::libc::c_void,
@@ -343,7 +445,7 @@ impl API {
         cx: *const ::libc::c_void,
         w_desc: cudnnFilterDescriptor_t,
         w: *const ::libc::c_void,
-        y_desc: &[cudnnTensorDescriptor_t],
+        y_desc: *const cudnnTensorDescriptor_t,
         y: *mut ::libc::c_void,
         hy_desc: cudnnTensorDescriptor_t,
         hy: *mut ::libc::c_void,
@@ -358,7 +460,7 @@ impl API {
             handle,
             rnn_desc,
             seq_length,
-            x_desc.as_ptr(),
+            x_desc,
             x,
             hx_desc,
             hx,
@@ -366,7 +468,7 @@ impl API {
             cx,
             w_desc,
             w,
-            y_desc.as_ptr(),
+            y_desc,
             y,
             hy_desc,
             hy,
@@ -379,8 +481,9 @@ impl API {
         );
         match status {
             cudnnStatus_t::CUDNN_STATUS_SUCCESS => Ok(()),
-            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => Err(Error::BadParam("At least one of the following conditions was met: rnnDesc is invalid, hx_desc, w_desc, hy_desc, cy_desc, or one of the x_desc or y_desc is invalid. The descriptors for x_desc, cx_desc, _hx_desc, w_desc, y_desc, hy_desc, cy_desc have incorrect strides/diemnsions. Workspace size is too small. Reserve space size is too small.")),
-            cudnnStatus_t::CUDNN_STATUS_NOT_SUPPORTED => Err(Error::NotSupported("At least one of the following conditions are met: `src_desc` or `dest_desc` have negative tensor striding. `src_desc`, `rnn_desc` or `dest_desc` has a number of dimensions that is not 4 or 5. The chosen algo does not support the parameters provided; see the reference for exhaustive list of parameter support for each algo")),
+            cudnnStatus_t::CUDNN_STATUS_BAD_PARAM => panic!("Bad Params!"),//Err(Error::BadParam("At least one of the following conditions was met: rnnDesc is invalid, hx_desc, w_desc, hy_desc, cy_desc, or one of the x_desc or y_desc is invalid. The descriptors for x_desc, cx_desc, _hx_desc, w_desc, y_desc, hy_desc, cy_desc have incorrect strides/diemnsions. Workspace size is too small. Reserve space size is too small.")),
+            cudnnStatus_t::CUDNN_STATUS_EXECUTION_FAILED => panic!("CUDNN RNN Forward Function failed to launch on GPU!"),//Err(Error::NotSupported("At least one of the following conditions are met: `src_desc` or `dest_desc` have negative tensor striding. `src_desc`, `rnn_desc` or `dest_desc` has a number of dimensions that is not 4 or 5. The chosen algo does not support the parameters provided; see the reference for exhaustive list of parameter support for each algo")),
+            cudnnStatus_t::CUDNN_STATUS_ALLOC_FAILED => panic!("Allocation failed"),
             _ => Err(Error::Unknown("Unable to compute CUDA cuDNN rnnal forward.")),
         }
     }
@@ -515,7 +618,7 @@ impl API {
     }
 }
 
-// Backward Training, Bias, Weights, and IInference
+// Backward Training, Bias, Weights, and Inference
 impl API {
     /// CUDNN Rnn Backward Data
     /// This routine executes the recurrent neural network described by rnnDesc with output
